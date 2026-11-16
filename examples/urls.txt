@@ -1,0 +1,5 @@
+# One URL per line. Blank lines and comments are ignored.
+https://www.example.com/
+https://www.example.com/docs/
+https://www.example.com/docs/install/
+https://www.example.com/pricing/

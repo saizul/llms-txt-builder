@@ -1,0 +1,16 @@
+# The same kind of configuration in YAML (needs: pip install "llms-txt-builder[yaml]").
+site:
+  name: Example Docs
+  summary: Static documentation for small teams.
+filter:
+  exclude: ["/tag/**", "/search/**"]
+output:
+  default_section: ""      # drop pages that no section matches
+sections:
+  - name: Docs
+    match: ["/docs/**"]
+    sort: url
+  - name: Blog
+    match: "/blog/*"
+    max_items: 10
+    overflow: optional

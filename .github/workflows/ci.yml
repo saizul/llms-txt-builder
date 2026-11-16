@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+      - name: Ruff
+        run: |
+          ruff check .
+          ruff format --check .
+
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+      - name: Test
+        run: pytest
+      - name: CLI smoke test (offline)
+        run: |
+          llms-txt-builder --version
+          llms-txt-builder validate examples/llms.txt --strict
+          llms-txt-builder validate examples/llms.txt -f json > smoke.json
+          python -c "import json; d = json.load(open('smoke.json')); assert d['errors'] == 0, d"
+          llms-txt-builder diff examples/llms.txt examples/llms.txt
+          llms-txt-builder init "$RUNNER_TEMP/llms-txt.toml"
+          # A file without an H1 must fail validation with exit code 1.
+          printf '## Docs\n\n- not a link\n' > "$RUNNER_TEMP/bad.txt"
+          set +e
+          llms-txt-builder validate "$RUNNER_TEMP/bad.txt" --format github
+          code=$?
+          set -e
+          test "$code" -eq 1
+          python examples/library_usage.py
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t llms-txt-builder:ci .
+      - run: docker run --rm llms-txt-builder:ci --version
+      - run: >
+          docker run --rm -v "$PWD/examples:/work:ro" --user "$(id -u)"
+          llms-txt-builder:ci validate llms.txt --strict

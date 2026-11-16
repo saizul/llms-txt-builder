@@ -1,0 +1,68 @@
+# Example configuration for a WordPress site with documentation, a blog and legal pages.
+# Run: llms-txt-builder build --site https://www.example.com -c examples/llms-txt.toml -o public/
+
+[site]
+name = "Example Co"
+summary = "Example Co makes invoicing software for freelancers and small agencies. The pages below explain the product, the documentation and the pricing."
+notes = [
+  "Prices are listed in USD and exclude VAT.",
+  "The REST API reference lives under /docs/api/ and is versioned.",
+]
+
+[source]
+max_pages = 400
+max_depth = 4
+concurrency = 6
+delay = 0.2
+timeout = 20
+respect_robots = true
+
+[filter]
+exclude = [
+  "/tag/**",
+  "/category/**",
+  "/author/**",
+  "/page/**",
+  "/cart/**",
+  "/checkout/**",
+  "/my-account/**",
+  're:/\d{4}/\d{2}/$',   # date archives
+]
+skip_noindex = true
+drop_non_canonical = true
+
+[output]
+title_source = "auto"
+description_source = "auto"
+max_description_length = 160
+default_section = "Pages"
+sort = "input"
+full = true
+full_max_chars_per_page = 20000
+link_to_markdown = false
+
+[[sections]]
+name = "Product"
+match = ["/", "/features/**", "/pricing/", "/integrations/**"]
+
+[[sections]]
+name = "Docs"
+match = ["/docs/**"]
+sort = "url"
+
+[[sections]]
+name = "Blog"
+match = ["/blog/**"]
+max_items = 25
+overflow = "optional"
+
+[[sections]]
+name = "Legal"
+match = ["/privacy-policy/", "/terms/", "/cookie-policy/"]
+optional = true
+
+[[links]]
+section = "Docs"
+title = "Changelog"
+url = "https://github.com/example/example-co/releases"
+description = "Release notes for every version"

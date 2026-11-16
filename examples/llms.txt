@@ -1,0 +1,19 @@
+# Example Docs
+
+> Example Docs is a static documentation generator for small teams.
+
+Prices are listed in USD.
+
+## Docs
+
+- [Documentation](https://www.example.com/docs/): Everything about installing and configuring Example Docs.
+- [Installation](https://www.example.com/docs/install/): Install Example Docs with pip and create your first site.
+- [Configuration](https://www.example.com/docs/config/): The site.toml file holds every setting, with defaults.
+
+## Blog
+
+- [Release 1.2](https://www.example.com/blog/post-3/): Version 1.2.
+
+## Optional
+
+- [Privacy](https://www.example.com/privacy/): How we use data.

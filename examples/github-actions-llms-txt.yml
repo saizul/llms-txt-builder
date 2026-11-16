@@ -1,0 +1,33 @@
+# Rebuild llms.txt every week, fail on spec errors, and show what changed compared with the live file.
+name: llms.txt
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install llms-txt-builder
+      - name: Build
+        run: llms-txt-builder build --site https://www.example.com -c llms-txt.toml -o public/ --report build-report.json
+      - name: Validate
+        run: llms-txt-builder validate public/llms.txt --format github --strict
+      - name: Diff against the live file
+        run: llms-txt-builder diff https://www.example.com/llms.txt public/llms.txt || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: llms-txt
+          path: |
+            public/llms.txt
+            public/llms-full.txt
+            build-report.json
