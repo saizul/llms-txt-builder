@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `build --markdown-pages` (`output.markdown_pages = true`) writes a Markdown version of every listed page to the
+  output directory at the llmstxt.org path (URL path plus `.md`, `index.html.md` for directory URLs), with the
+  title, description, source URL and content. With `output.link_to_markdown = true`, `llms.txt` links to these files
+  when a page has no Markdown version of its own. Unsafe paths are skipped and reported; the `--report` file lists
+  the written files under `markdown_pages`. Library: `markdown_path()`, `markdown_url()`,
+  `build_markdown_page()` and `BuildResult.markdown_pages`.
+- A code of conduct, issue forms and a pull request template.
+
 ## [0.1.0] - 2026-11-16
 
 ### Added

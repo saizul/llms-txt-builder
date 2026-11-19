@@ -40,6 +40,7 @@ sort = "input"
 full = true
 full_max_chars_per_page = 20000
 link_to_markdown = false
+markdown_pages = false
 
 [[sections]]
 name = "Product"

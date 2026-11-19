@@ -112,6 +112,11 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("-o", "--output-dir", default=".", help="directory for llms.txt and llms-full.txt (default .)")
     b.add_argument("--stdout", action="store_true", help="print llms.txt to standard output instead of writing files")
     b.add_argument("--no-full", action="store_true", help="do not write llms-full.txt")
+    b.add_argument(
+        "--markdown-pages",
+        action="store_true",
+        help="also write a Markdown file per listed page (URL path + .md) to the output directory",
+    )
     b.add_argument("--name", help="site name for the H1 (overrides the config)")
     b.add_argument("--summary", help="summary for the blockquote (overrides the config)")
     b.add_argument("--max-pages", type=int, help="maximum pages in the output (default 500)")
@@ -220,6 +225,8 @@ def _apply_build_args(args: argparse.Namespace, config: Config) -> Config:
         config.filter.exclude = [*config.filter.exclude, *args.exclude]
     if args.no_full:
         config.output.full = False
+    if args.markdown_pages:
+        config.output.markdown_pages = True
     if args.ignore_robots:
         config.source.respect_robots = False
     config.validate()
@@ -234,6 +241,7 @@ def _report(collection: Collection, result: BuildResult) -> dict:
             if p.url in result.placement
         ],
         "dropped": [{"url": u, "reason": r} for u, r in result.dropped],
+        "markdown_pages": sorted(result.markdown_pages),
         "skipped": [{"url": s.url, "reason": s.reason} for s in collection.skipped],
         "errors": [{"url": s.url, "reason": s.reason} for s in collection.errors],
     }
@@ -289,6 +297,12 @@ async def _cmd_build(args: argparse.Namespace, transport: httpx.AsyncBaseTranspo
     if config.output.full and result.full_text:
         (out_dir / "llms-full.txt").write_text(result.full_text, encoding="utf-8")
         written.append(str(out_dir / "llms-full.txt"))
+    for rel, markdown in result.markdown_pages.items():
+        target = out_dir / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(markdown, encoding="utf-8")
+    if result.markdown_pages:
+        written.append(f"{len(result.markdown_pages)} Markdown page(s)")
     if not args.quiet:
         listed = sum(len(s.items) for s in result.document.sections)
         print(

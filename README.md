@@ -163,6 +163,7 @@ $ llms-txt-builder build --urls examples/urls.txt --stdout --no-full
 | `-o, --output-dir DIR` | where `llms.txt` and `llms-full.txt` go (default `.`) |
 | `--stdout` | print `llms.txt` instead of writing files |
 | `--no-full` | skip `llms-full.txt` |
+| `--markdown-pages` | also write a Markdown file per listed page (`docs/install.md`, `docs/index.html.md`) |
 | `--name`, `--summary` | override the H1 and the blockquote |
 | `--max-pages N`, `--max-depth N` | page and crawl depth limits (default 500 and 5) |
 | `--include P`, `--exclude P` | URL patterns, added to the ones in the config (repeatable) |
@@ -243,6 +244,23 @@ The proposal also suggests offering a Markdown version of each page at the same 
 link one with `<link rel="alternate" type="text/markdown" href="…">`, set `output.link_to_markdown = true` and
 `llms.txt` will link those versions.
 
+If your site has no Markdown versions yet, `--markdown-pages` (or `output.markdown_pages = true`) writes them next
+to `llms.txt`, one file per listed page, at the path the proposal uses: the URL path plus `.md`, and
+`index.html.md` for URLs that end in `/`.
+
+| Page URL | File in the output directory |
+| --- | --- |
+| `https://www.example.com/` | `index.html.md` |
+| `https://www.example.com/docs/` | `docs/index.html.md` |
+| `https://www.example.com/docs/install` | `docs/install.md` |
+
+Each file has the page title as H1, the meta description as a quote, a `Source:` line and the page content as
+Markdown (headings are kept as they are). Upload the output directory to your web root and set
+`output.link_to_markdown = true` to point `llms.txt` at these files; a page that already links its own Markdown
+version keeps that link. Paths that could leave the output directory (`..`, encoded slashes or backslashes) are
+skipped and listed under `dropped` in the `--report` file, which also lists the files under `markdown_pages`. When
+the pages come from more than one host, files are named by path only and the first page wins.
+
 ## Configuration
 
 Everything is optional. A full example is in [`examples/llms-txt.toml`](examples/llms-txt.toml), and the same
@@ -282,6 +300,7 @@ max_description_length = 160
 default_section = "Pages"    # section for unmatched pages; "" drops them
 sort = "input"           # input (sitemap/crawl order) | url | title
 link_to_markdown = false
+markdown_pages = false   # write a .md file per listed page (see "The llms.txt format")
 full = true              # write llms-full.txt
 full_max_chars_per_page = 0  # 0 = no limit
 full_demote_headings = true
@@ -458,7 +477,7 @@ See [SECURITY.md](SECURITY.md) for reporting a vulnerability.
 ## Contributing
 
 Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup and
-guidelines, and [CHANGELOG.md](CHANGELOG.md) for the release history.
+guidelines, [CHANGELOG.md](CHANGELOG.md) for the release history, and the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## License
 

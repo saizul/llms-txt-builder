@@ -2,8 +2,17 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from fakesite import HOST, FakeSite, with_fetcher
-from llms_txt_builder.build import build, demote_headings, page_description, page_title
+from llms_txt_builder.build import (
+    build,
+    demote_headings,
+    markdown_path,
+    markdown_url,
+    page_description,
+    page_title,
+)
 from llms_txt_builder.collect import Collector, read_url_list
 from llms_txt_builder.config import Config, config_from_dict
 from llms_txt_builder.extract import PageInfo
@@ -168,6 +177,33 @@ class TestBuild:
         urls = [i.url for _, i in result.document.all_links()]
         assert f"{HOST}/docs/install.md" in urls
 
+    def test_markdown_pages(self, site: FakeSite):
+        config = config_from_dict({**SECTIONS, "output": {"markdown_pages": True}})
+        result = build(collect_sitemap(site, config), config)
+        pages = result.markdown_pages
+        assert "docs/install/index.html.md" in pages
+        assert "index.html.md" in pages
+        install = pages["docs/install/index.html.md"]
+        assert install.startswith("# Installation\n\n")
+        assert f"Source: {HOST}/docs/install/" in install
+        assert "## Requirements" in install  # headings are not demoted in standalone pages
+        assert install.count("# Installation") == 1
+        # Only listed pages get a file, and llms.txt keeps the HTML links unless link_to_markdown is set.
+        assert len(pages) == len([u for u, _ in result.placement.items()])
+        assert all(not i.url.endswith(".md") for _, i in result.document.all_links())
+
+    def test_markdown_pages_with_link_to_markdown(self, site: FakeSite):
+        config = config_from_dict({"output": {"markdown_pages": True, "link_to_markdown": True}})
+        result = build(collect_sitemap(site, config), config)
+        urls = [i.url for _, i in result.document.all_links()]
+        assert f"{HOST}/docs/install.md" in urls  # the page's own <link rel=alternate> wins
+        assert f"{HOST}/docs/index.html.md" in urls
+        assert f"{HOST}/index.html.md" in urls
+
+    def test_markdown_pages_off_by_default(self, site: FakeSite):
+        config = config_from_dict(SECTIONS)
+        assert build(collect_sitemap(site, config), config).markdown_pages == {}
+
     def test_full_text(self, site: FakeSite):
         config = config_from_dict(SECTIONS)
         full = build(collect_sitemap(site, config), config).full_text
@@ -219,6 +255,30 @@ class TestTitlesAndDescriptions:
         assert page_description(info, config_from_dict({"output": {"description_source": "none"}})) == ""
         empty = PageInfo(url="u", content_text="")
         assert page_description(empty, config_from_dict({"output": {"description_source": "meta"}})) == ""
+
+
+@pytest.mark.parametrize(
+    ("url", "path"),
+    [
+        ("https://x.io/", "index.html.md"),
+        ("https://x.io", "index.html.md"),
+        ("https://x.io/docs/", "docs/index.html.md"),
+        ("https://x.io/docs/install", "docs/install.md"),
+        ("https://x.io/page.html", "page.html.md"),
+        ("https://x.io/caf%C3%A9/", "café/index.html.md"),
+        ("https://x.io/a/../../etc/passwd", None),
+        ("https://x.io/a%2F..%2F..%2Fb", None),
+        ("https://x.io/a%5Cb", None),
+    ],
+)
+def test_markdown_path(url, path):
+    assert markdown_path(url) == path
+
+
+def test_markdown_url():
+    assert markdown_url("https://x.io/docs/") == "https://x.io/docs/index.html.md"
+    assert markdown_url("https://x.io/docs/install?a=1#top") == "https://x.io/docs/install.md"
+    assert markdown_url("https://x.io") == "https://x.io/index.html.md"
 
 
 def test_demote_headings_ignores_code():
