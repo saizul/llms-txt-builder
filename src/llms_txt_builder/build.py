@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit, urlunsplit
 
 from llms_txt_builder.collect import Collection, Page
 from llms_txt_builder.config import Config, SectionRule
@@ -20,6 +20,8 @@ class BuildResult:
     # url -> section name for every page placed; pages dropped by the grouping rules are listed separately.
     placement: dict[str, str] = field(default_factory=dict)
     dropped: list[tuple[str, str]] = field(default_factory=list)
+    # Relative file path (``docs/install.md``) -> Markdown, when ``output.markdown_pages`` is on.
+    markdown_pages: dict[str, str] = field(default_factory=dict)
 
     @property
     def text(self) -> str:
@@ -108,6 +110,43 @@ def _rule_for(url: str, rules: list[SectionRule]) -> SectionRule | None:
     return next((r for r in rules if r.matches(url)), None)
 
 
+def markdown_path(url: str) -> str | None:
+    """Where the Markdown version of ``url`` lives, following llmstxt.org: the URL path plus ``.md``.
+
+    ``/docs/install`` becomes ``docs/install.md``, ``/docs/`` becomes ``docs/index.html.md`` and ``/`` becomes
+    ``index.html.md``. Paths that could leave the output directory (``..``, backslashes, NUL) give ``None``.
+    """
+    path = unquote(urlsplit(url).path) or "/"
+    if path.endswith("/"):
+        path += "index.html"
+    segments = [s for s in path.split("/") if s]
+    if not segments or any(s in (".", "..") or "\\" in s or "\x00" in s for s in segments):
+        return None
+    return "/".join(segments) + ".md"
+
+
+def markdown_url(url: str) -> str:
+    """The public URL of the Markdown version: ``https://x.io/docs/`` -> ``https://x.io/docs/index.html.md``."""
+    parts = urlsplit(url)
+    path = parts.path or "/"
+    if path.endswith("/"):
+        path += "index.html"
+    return urlunsplit((parts.scheme, parts.netloc, path + ".md", "", ""))
+
+
+def build_markdown_page(info: PageInfo, url: str, config: Config, site_name: str) -> str:
+    """One page as a standalone Markdown file: H1 title, the description as a quote, then the content."""
+    title = page_title(info, config, site_name)
+    body = _drop_leading_title(info.content_markdown, {title.lower(), clean(info.h1).lower()}).strip()
+    parts = [f"# {title}"]
+    if info.description:
+        parts.append(f"> {clean(info.description)}")
+    parts.append(f"Source: {url}")
+    if body:
+        parts.append(body)
+    return "\n\n".join(parts) + "\n"
+
+
 def build(collection: Collection, config: Config) -> BuildResult:
     site_name = _site_name(config, collection)
     doc = Document(title=site_name, summary=_summary(config, collection))
@@ -124,7 +163,12 @@ def build(collection: Collection, config: Config) -> BuildResult:
             continue
         seen_urls.add(page.url)
         info = page.info
-        url = info.markdown_url if config.output.link_to_markdown and info.markdown_url else page.url
+        url = page.url
+        if config.output.link_to_markdown:
+            if info.markdown_url:
+                url = info.markdown_url
+            elif config.output.markdown_pages and markdown_path(page.url):
+                url = markdown_url(page.url)
         item = LinkItem(page_title(info, config, site_name), url, page_description(info, config))
         rule = _rule_for(page.url, rules)
         if rule is not None:
@@ -182,9 +226,17 @@ def build(collection: Collection, config: Config) -> BuildResult:
     for name in names:
         doc.sections.append(Section(name, [item for _, item in final[name]]))
 
+    placed = [page for name in names for page, _ in final[name] if page.order < 10**9]
     if config.output.full:
-        placed = [page for name in names for page, _ in final[name] if page.order < 10**9]
         result.full_text = build_full(doc, placed, config)
+    if config.output.markdown_pages:
+        for page in placed:
+            rel = markdown_path(page.url)
+            if rel is None:
+                result.dropped.append((page.url, "no safe file name for its Markdown version"))
+                continue
+            if rel not in result.markdown_pages:
+                result.markdown_pages[rel] = build_markdown_page(page.info, page.url, config, doc.title)
     return result
 
 

@@ -62,6 +62,7 @@ class OutputConfig:
     description_source: str = "auto"  # auto | meta | content | none
     max_description_length: int = 160
     link_to_markdown: bool = False
+    markdown_pages: bool = False
     default_section: str = "Pages"
     sort: str = "input"  # input | url | title
     full: bool = True

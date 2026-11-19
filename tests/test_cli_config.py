@@ -99,6 +99,18 @@ class TestBuildCommand:
         assert any(s["reason"] == "disallowed by robots.txt" for s in data["skipped"])
         assert "wrote" in capsys.readouterr().out
 
+    def test_build_writes_markdown_pages(self, site: FakeSite, tmp_path, capsys):
+        out = tmp_path / "out"
+        report = tmp_path / "report.json"
+        args = ["build", "--sitemap", f"{HOST}/sitemap_index.xml", "-o", str(out), "--no-full", "--markdown-pages"]
+        assert main([*args, "--report", str(report)], transport=site.transport) == 0
+        page = out / "docs" / "install" / "index.html.md"
+        assert page.read_text(encoding="utf-8").startswith("# Installation")
+        assert (out / "index.html.md").is_file()
+        assert not (out / "llms-full.txt").exists()
+        assert "docs/install/index.html.md" in json.loads(report.read_text(encoding="utf-8"))["markdown_pages"]
+        assert "Markdown page(s)" in capsys.readouterr().out
+
     def test_build_stdout_with_crawl_and_overrides(self, site: FakeSite, capsys):
         code = main(
             ["build", "--crawl", f"{HOST}/", "--stdout", "--name", "Docs!", "--summary", "S.", "--max-pages", "3"],
